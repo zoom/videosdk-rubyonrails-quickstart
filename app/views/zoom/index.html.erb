@@ -1,0 +1,78 @@
+<div class="container mx-auto px-4 py-8">
+  <h1 class="text-3xl font-bold mb-8 text-center">Zoom Video SDK Quickstart</h1>
+  
+  <div class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
+    <form id="sessionForm" class="space-y-4">
+      <div>
+        <label for="sessionName" class="block text-sm font-medium text-gray-700 mb-2">
+          Session Name
+        </label>
+        <input 
+          type="text" 
+          id="sessionName" 
+          name="sessionName" 
+          required
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Enter session name"
+        >
+      </div>
+      
+      <div>
+        <label for="role" class="block text-sm font-medium text-gray-700 mb-2">
+          Role
+        </label>
+        <select 
+          id="role" 
+          name="role"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        >
+        <option value="1">Host</option>
+          <option value="0">Attendee</option>
+        </select>
+      </div>
+      
+      <button 
+        type="submit"
+        class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+        Join Session
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+document.getElementById('sessionForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  
+  const sessionName = document.getElementById('sessionName').value;
+  const role = document.getElementById('role').value;
+  
+  try {
+    const response = await fetch('/zoom/generate_jwt', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+      },
+      body: JSON.stringify({
+        session_name: sessionName,
+        role: role
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.error) {
+      alert('Error: ' + data.error);
+      return;
+    }
+    
+    // Redirect to video session with JWT
+    window.location.href = `/zoom/video_session?session_name=${encodeURIComponent(sessionName)}&jwt=${encodeURIComponent(data.jwt)}`;
+    
+  } catch (error) {
+    alert('Error generating JWT: ' + error.message);
+  }
+});
+</script> 

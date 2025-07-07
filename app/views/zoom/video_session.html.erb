@@ -1,0 +1,115 @@
+<% content_for :title, "Zoom Video Session" %>
+
+<h1 class="text-3xl font-bold text-center my-4">Zoom VideoSDK Quickstart</h1>
+<div class="flex flex-row self-center">
+  <button id="start-btn" class="bg-blue-500 text-white font-bold py-2 px-4 rounded mb-4 w-64 self-center">
+    Join
+  </button>
+  <button id="stop-btn" class="hidden bg-blue-500 text-white font-bold py-2 px-4 rounded mb-4 w-64 self-center">
+    Leave
+  </button>
+</div>
+<div class="flex flex-row self-center m-2">
+  <button id="toggle-video-btn" class="hidden bg-blue-500 text-white py-2 text-sm px-2 rounded w-48 self-center">
+    Toggle Video
+  </button>
+  <button id="toggle-audio-btn" class="hidden bg-blue-500 text-white py-2 text-sm px-2 rounded w-48 self-center">
+    Toggle Audio
+  </button>
+</div>
+<video-player-container></video-player-container>
+<script src="https://source.zoom.us/videosdk/zoom-video-2.2.0.min.js"></script>
+<script src="/coi-serviceworker.js"></script> 
+<script type="module">
+const ZoomVideo = window.WebVideoSDK.default;
+
+const jwt = '<%= @jwt_token %>';
+const sessionName = '<%= @session_name %>';
+
+const videoContainer = document.querySelector('video-player-container');
+const role = 1;
+const username = `User-${String(new Date().getTime()).slice(6)}`;
+const client = ZoomVideo.createClient();
+await client.init("en-US", "Global", { patchJsMedia: true });
+
+const startCall = async () => {
+    client.on("peer-video-state-change", renderVideo);
+    await client.join(sessionName, jwt, username);
+    const mediaStream = client.getMediaStream();
+    await mediaStream.startAudio();
+    await mediaStream.startVideo();
+    await renderVideo({ action: 'Start', userId: client.getCurrentUserInfo().userId });
+};
+
+const renderVideo = async (event) => {
+    const mediaStream = client.getMediaStream();
+    if (event.action === 'Stop') {
+        const element = await mediaStream.detachVideo(event.userId);
+        Array.isArray(element) ? element.forEach((el) => el.remove()) : element.remove();
+    }
+    else {
+        const userVideo = await mediaStream.attachVideo(event.userId, 2);
+        videoContainer.appendChild(userVideo);
+    }
+};
+
+const leaveCall = async () => {
+    const mediaStream = client.getMediaStream();
+    for (const user of client.getAllUser()) {
+        const element = await mediaStream.detachVideo(user.userId);
+        Array.isArray(element) ? element.forEach((el) => el.remove()) : element.remove();
+    }
+    client.off("peer-video-state-change", renderVideo);
+    await client.leave();
+};
+
+const toggleVideo = async () => {
+  const mediaStream = client.getMediaStream();
+  if (mediaStream.isCapturingVideo()) {
+    await mediaStream.stopVideo();
+    await renderVideo({ action: 'Stop', userId: client.getCurrentUserInfo().userId });
+  } else {
+    await mediaStream.startVideo();
+    await renderVideo({ action: 'Start', userId: client.getCurrentUserInfo().userId });
+  }
+
+};
+
+const toggleAudio = async () => {
+  const mediaStream = client.getMediaStream();
+  if (client.getCurrentUserInfo().muted) {
+    await mediaStream.unmuteAudio();
+  } else {
+    await mediaStream.muteAudio();
+  }
+};
+
+const startBtn = document.querySelector("#start-btn");
+const stopBtn = document.querySelector("#stop-btn");
+const toggleVideoBtn = document.querySelector("#toggle-video-btn");
+const toggleAudioBtn = document.querySelector("#toggle-audio-btn");
+startBtn.addEventListener("click", async () => {
+    startBtn.innerHTML = "Connecting...";
+    startBtn.disabled = true;
+    await startCall();
+    startBtn.innerHTML = "Connected";
+    startBtn.style.display = "none";
+    stopBtn.style.display = "block";
+    toggleVideoBtn.style.display = "block";
+});
+stopBtn.addEventListener("click", async () => {
+    toggleVideoBtn.style.display = "none";
+    await leaveCall();
+    stopBtn.style.display = "none";
+    startBtn.style.display = "block";
+    startBtn.innerHTML = "Join";
+    startBtn.disabled = false;
+});
+toggleVideoBtn.addEventListener("click", async () => {
+    await toggleVideo();
+});
+toggleAudioBtn.addEventListener("click", async () => {
+  await toggleAudio();
+});
+
+</script>
